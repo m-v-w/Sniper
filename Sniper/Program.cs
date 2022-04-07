@@ -1,8 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Microsoft.ClearScript.V8;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Telegram.Bot;
 
 namespace Sniper
@@ -13,6 +17,8 @@ namespace Sniper
         private static readonly long[] CHAT_IDS = null;
         static void Main(string[] args)
         {
+            CheckUi();
+            return;
             //SendMsg("start test");
             while (true)
             {
@@ -21,6 +27,26 @@ namespace Sniper
                 //CheckAmd("5458374000","6800");
                 //CheckAmd("5458374000","6800");
                 Thread.Sleep(TimeSpan.FromSeconds(20));
+            }
+        }
+
+        static void CheckUi()
+        {
+            //var pageContent = LoadString("https://eu.store.ui.com/collections/unifi-protect/products/unifi-protect-g4-ptz", null, false);
+            var pageContent = LoadString("https://eu.store.ui.com/collections/unifi-protect/products/unifi-video-g3-flex-camera", null, false);
+            var match = Regex.Match(pageContent, "window\\.APP_DATA \\= \\{(.+?)\\}\\;", RegexOptions.Singleline);
+            if (!match.Success)
+                return;
+            var jsonString = $"JSON.stringify({{{match.Groups[1].Value}}})";
+            jsonString = Regex.Replace(jsonString, "localStorage.getItem\\(.+?\\)", "null");
+            using var v8 = new V8ScriptEngine();
+            var result = v8.Evaluate(jsonString) as string;
+            var obj = JObject.Parse(result);
+            var variants = (JArray) ((JObject) obj["product"])["variants"];
+            var available = variants.Any(x => x.Value<bool>("available"));
+            if (available)
+            {
+                SendMsg("Gogogo");
             }
         }
 
@@ -106,13 +132,13 @@ namespace Sniper
             request.Headers.Add("sec-fetch-site", jsReq?"same-origin":"none");
             request.Headers.Add("sec-fetch-user", "?1");
             request.Headers.Add("upgrade-insecure-requests", "1");
-            request.Headers.Add("x-requested-with","XMLHttpRequest");  
+            //request.Headers.Add("x-requested-with","XMLHttpRequest");  
             request.Headers.Add(HttpRequestHeader.AcceptLanguage, "en-US,en;q=0.9");
-            request.Headers.Add(HttpRequestHeader.AcceptEncoding, "gzip, deflate, br");
+            //request.Headers.Add(HttpRequestHeader.AcceptEncoding, "gzip, deflate, br");
             request.CachePolicy = new System.Net.Cache.RequestCachePolicy(System.Net.Cache.RequestCacheLevel.NoCacheNoStore); 
             request.Timeout = 20000;
             request.ReadWriteTimeout = 20000;
-            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+            //request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
             using var wresp = (HttpWebResponse)request.GetResponse();
             using var reader = new StreamReader(wresp.GetResponseStream());
             return reader.ReadToEnd();
